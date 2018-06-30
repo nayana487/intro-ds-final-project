@@ -155,8 +155,6 @@ test <- affair_data[-trainIndex, ]
 
 hadaffairlogit <- glm(hadaffair~sex+age+ym+child+religious+education+occupation+rate, family = binomial(link = "logit"), data = train)
 
-# Estimate: the log odds amount in which hadaffair would increase if the covariate was one unit higher
-# Intercept: values when covariates are all 0
 summary(hadaffairlogit)
 ```
 
