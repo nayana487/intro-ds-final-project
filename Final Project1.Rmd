@@ -1,0 +1,117 @@
+---
+title: "Final Project: Examining Affair Data"
+author: "Nayana Davis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem: What factor(s) contribute(s) most strongly to an individual having an extramarital affair?
+
+How did you develop your question and what relevant research has already been
+completed on this topic?
+
+Infidelity is a topic where people are not exactly going to be the most forthcoming if they're commited the act. As such, I wasn't able to glean much valuable insight on the drivers for extramarital affairs beyond basic demographic markers.  
+
+{r} [NPR reports] (https://www.npr.org/2015/07/26/426434619/sorting-through-the-numbers-on-infidelity) that data from Ashley Madison revealed that men approaching their next decade (ie 29, 39, etc) were more likely to be on the site. {r} [The General Social Survey] (https://ifstudies.org/blog/who-cheats-more-the-demographics-of-cheating-in-america), conducted by Institute for Family Studies found that Democrats, those who grew up in broken homes, and those who did not attend many religious services where more likely to take part in adultery. 
+
+Although, the Extramarital Affairs Data set used in a survey conducted by Yale's Ray C. Fair is older -- 1977, it did provide additional factors that I suspected could contribute to having an extramarital affair, such as rating the participant's happiness in the marriage, if children were involved and years married. This prompted me to wonder if there was a factor evaluated that would allow for prediction of infidelity. 
+
+2. How did you gather and prepare the data for analysis?
+
+As previously mentioned, I used the {r} [Fairs Extramarital Affairs Data set] (https://www.npr.org/2015/07/26/426434619/sorting-through-the-numbers-on-infidelity) to conduct my analysis. I converted many of the predictor variables into factors from integers since they were categorical and ordinal values. I actually got rid of the affairs column, which reported the number of times a participant had sexual intercourse outside of marriage and instead made a new column called hadaffair, which is set to "yes" if the number in the old affairs column was greater than or equal to 1. I did this because I thought the old column was a strange metric since it doesn't reveal if there were multiple partners or time span -- I believed the new one I created is more straightforward. 
+
+## Data Processing
+
+```{r}
+setwd("/Users/nayanadavis/Desktop/R/Intro to DS/Final Project/")
+affair_data <- data.frame(read.csv("./Fair.csv", header = TRUE))
+str(affair_data)
+# added column to say if person had at least one affair
+affair_data <- within(affair_data, {
+    hadaffair = ifelse(nbaffairs >= 1, "yes", "no")
+ })
+
+# removed number of affairs column
+affair_data<- affair_data[ -c(10) ]
+
+affair_data$age<- factor(affair_data$age)
+affair_data$ym <- factor(affair_data$ym)
+affair_data$religious <- factor(affair_data$religious)
+affair_data$education <- factor(affair_data$education)
+affair_data$occupation <- factor(affair_data$occupation)
+affair_data$rate <- factor(affair_data$rate)
+affair_data$hadaffair <- factor(affair_data$hadaffair)
+```
+
+## Exploratory Data Analysis
+``` {r}
+str(affair_data)
+head(affair_data)
+#check for averages in continous variables, counts for categorical 
+summary(affair_data)
+
+plot(affair_data$hadaffair)
+
+# check for missing values
+library(Amelia)
+missmap(affair_data, main = "Missing vs observed values")
+
+```
+3. How did you select and determine the correct model to answer your question?
+Since the question I want to answer was if certain factors could predict if a person was going to participate in an extramarital affair not, I thought a logistic regression model would be best. I wanted to know if specific responses could point to infidelity, which, if you've committed the act is just a yes or no answer.  
+
+##Model Building
+``` {r}
+library(caret)
+
+trainIndex <- createDataPartition(affair_data$hadaffair, p=.66, list=FALSE,times = 1)
+
+train <- affair_data[trainIndex, ]
+test <- affair_data[-trainIndex, ]
+
+
+hadaffairlogit <- glm(hadaffair~sex+age+ym+child+religious+education+occupation+rate, family = binomial(link = "logit"), data = train)
+
+# Estimate: the log odds amount in which hadaffair would increase if the covariate was one unit higher
+# Intercept: values when covariates are all 0
+summary(hadaffairlogit)
+
+#There was no positive correlation between any of the predictor variables with a low enough p-value that would allow us to reject the null hypothesis
+
+#Kept religion and age since it showed the lowest p-values, indicating we can more confidently reject the null hypothesis. 
+hadaffairlogit <- glm(hadaffair~age + religious + rate, family = binomial(link = "logit"), data = train)
+
+summary(hadaffairlogit)
+
+#Removed age for a stronger model
+hadaffairlogit <- glm(hadaffair~religious + rate, family = binomial(link = "logit"), data = train)
+
+summary(hadaffairlogit)
+
+modeloutput <- exp(coef(hadaffairlogit))
+modeloutput
+
+library(ResourceSelection)
+hoslem.test(train$hadaffair, fitted(hadaffairlogit))
+
+pred.model <- predict.glm(hadaffairlogit,test,type='response')
+pred.model 
+
+```
+
+
+5. What predictions can you make with your model? 
+
+I wasn't able to find any factors that positively correlate with extramarital activity. The p-values rendered the majority of the factor variables nonsignificant. However, I did find that those identifying as more religious and more unhappy in the marriage are predictors for not having an extramarital affair. Even though I wasn't able to answer my question directly, but I was able to see that there are factors that contribute to not committing adultery.
+
+4. How reliable are your results?
+
+ My goodness of fit test revealed a very low p-value showing evidence of poor fit. 
+
+6. What additional information or analysis might improve your model results or work to
+control limitations?
+
+I'm not sure that I accounted for the for ordinal values appropriately.  I think I should have accounted for the fact that the number values are signficant. 
